@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# Anything a review run produces
+output/
+
+# API keys and any other local, unversioned material -- see README.md
+unversioned/
+!unversioned/.gitkeep

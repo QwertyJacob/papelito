@@ -1,0 +1,21 @@
+[project]
+name = "papelito"
+version = "0.1.0"
+description = "Self-contained scoped literature search: give it keywords/topics and a venue allow-list, get back a readable Markdown report (arXiv + Semantic Scholar + DBLP, with citation-graph snowballing)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+dependencies = [
+    "requests>=2.28",
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+papelito = "papelito.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["papelito*"]

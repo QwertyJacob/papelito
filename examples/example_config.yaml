@@ -1,0 +1,59 @@
+# Example papelito review config. Copy this file, edit it, then run:
+#   papelito run my_review.yaml
+
+project_name: "Example: GNNs for intrusion detection"
+
+# One entry per search theme. `query` is used as-is against Semantic
+# Scholar's plain-language search. `arxiv_query` is optional -- if you
+# omit it, papelito wraps `query` as a quoted arXiv phrase search; supply
+# it yourself for arXiv's boolean field syntax (all:/AND/OR/cat:).
+topics:
+  - label: "GNNs for intrusion detection"
+    query: "graph neural network intrusion detection"
+    arxiv_query: 'all:"graph neural network" AND all:"intrusion detection"'
+
+  - label: "out-of-distribution generalization"
+    query: "out-of-distribution generalization deep learning"
+
+  - label: "message passing for network security"
+    query: "message passing network security"
+
+# Venue allow-list. Leave this empty (`venues: []`) to keep every paper
+# found, regardless of venue -- venue is then reported for information
+# only, never used to filter.
+venues:
+  - name: "NeurIPS"
+    aliases: ["NIPS", "Neural Information Processing Systems"]
+  - name: "ICML"
+    aliases: ["International Conference on Machine Learning"]
+  - name: "ICLR"
+    aliases: ["International Conference on Learning Representations"]
+  - name: "IEEE S&P"
+    aliases: ["IEEE Symposium on Security and Privacy"]
+  - name: "USENIX Security"
+    aliases: ["USENIX Security Symposium"]
+  - name: "NDSS"
+    aliases: ["Network and Distributed System Security Symposium"]
+
+# Optional: seed papers to snowball from (backward references + forward
+# citations), kept only when a result is both venue-eligible and
+# topically on-theme. Each seed is resolved to a Semantic Scholar paper
+# via search, so a title, a close paraphrase, or an arXiv title all work.
+# Requires a Semantic Scholar API key (see README.md) -- silently skipped
+# without one.
+seeds:
+  - "Graph Neural Networks: A Review of Methods and Applications"
+
+# Optional: a plain-text file, one title per line, of papers you already
+# know about -- matched papers get flagged `_already_known` in the report
+# instead of being excluded.
+# known_titles_file: known_titles.txt
+
+options:
+  arxiv_results_per_topic: 25
+  s2_results_per_topic: 25
+  snowball: true
+  snowball_limit: 500
+  dblp_venue_confirm: true
+
+output_dir: output
