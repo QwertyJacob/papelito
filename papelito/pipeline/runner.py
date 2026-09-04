@@ -17,6 +17,36 @@ def _norm_title(t):
     return re.sub(r"[^a-z0-9]+", " ", (t or "").lower()).strip()
 
 
+def _surname(name):
+    return name.strip().split()[-1].lower()
+
+
+def _filter_by_authors(pool, author_names):
+    """When an `authors:` allow-list is configured, treat it as an
+    authorship filter over EVERY identification source, not just the
+    dedicated author-profile pull -- otherwise a topic search returns every
+    other researcher writing about the same topic, which is exactly the
+    ambiguity author-scoped identification exists to resolve (see
+    identify.identify_by_authors). Matches on surname as a whole word,
+    since sources report author names in inconsistent formats ("D.
+    Hoffman" vs "Donald D. Hoffman"). Candidates with no author data at all
+    (e.g. snowball hits, which don't fetch author fields) are dropped by
+    this filter -- keep such pools out of the merge when authors: is set
+    and precision matters more than recall."""
+    if not author_names:
+        return pool
+    surnames = {_surname(n) for n in author_names}
+
+    def matches(c):
+        for a in (c.get("authors") or []):
+            words = re.findall(r"[a-z]+", (a or "").lower())
+            if any(s in words for s in surnames):
+                return True
+        return False
+
+    return {k: c for k, c in pool.items() if matches(c)}
+
+
 def _checkpoint(outdir, name, data):
     raw_dir = os.path.join(outdir, "raw")
     os.makedirs(raw_dir, exist_ok=True)
@@ -45,12 +75,18 @@ def run(config, log=print):
     _checkpoint(config.output_dir, "01_arxiv_candidates.json", arxiv_pool)
     log(f"  {len(arxiv_pool)} unique arXiv candidates")
 
-    s2_pool, snowball_pool = {}, {}
+    s2_pool, author_pool, snowball_pool = {}, {}, {}
     if api_key:
         log(f"\n=== Identifying via Semantic Scholar ({len(config.topics)} topic(s)) ===")
         s2_pool = identify.identify_s2(config.topics, s2_client, config.options, log=log)
         _checkpoint(config.output_dir, "02_s2_candidates.json", s2_pool)
         log(f"  {len(s2_pool)} unique S2 candidates")
+
+        if config.authors:
+            log(f"\n=== Identifying via author search ({len(config.authors)} author(s)) ===")
+            author_pool = identify.identify_by_authors(config.authors, config.topics, s2_client, log=log)
+            _checkpoint(config.output_dir, "02b_author_candidates.json", author_pool)
+            log(f"  {len(author_pool)} unique author-based candidates")
 
         if config.options.snowball and config.seeds:
             log(f"\n=== Resolving {len(config.seeds)} seed(s) ===")
@@ -66,8 +102,15 @@ def run(config, log=print):
         elif config.options.snowball and not config.seeds:
             log("\n(snowballing enabled but no seeds configured -- skipped)")
 
+    if config.authors:
+        log(f"\n=== Restricting arXiv/S2 topic-search hits to configured author(s) ===")
+        before = len(arxiv_pool) + len(s2_pool)
+        arxiv_pool = _filter_by_authors(arxiv_pool, config.authors)
+        s2_pool = _filter_by_authors(s2_pool, config.authors)
+        log(f"  {before} -> {len(arxiv_pool) + len(s2_pool)} (author-profile pull is unaffected)")
+
     log("\n=== Merging and deduplicating ===")
-    pool = merge_stage.merge_pools(arxiv_pool, s2_pool, snowball_pool)
+    pool = merge_stage.merge_pools(arxiv_pool, s2_pool, author_pool, snowball_pool)
     log(f"  {len(pool)} unique candidates total")
 
     if api_key:

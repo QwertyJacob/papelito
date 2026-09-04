@@ -57,6 +57,7 @@ class Config:
     known_titles_file: Optional[str] = None
     semantic_scholar_api_key_file: Optional[str] = None
     config_path: Optional[str] = None
+    authors: List[str] = dataclasses.field(default_factory=list)
 
 
 def _resolve(base_dir: str, path: Optional[str]) -> Optional[str]:
@@ -94,6 +95,7 @@ def load_config(path: str) -> Config:
         topics=topics,
         venues=venues,
         seeds=raw.get("seeds", []) or [],
+        authors=raw.get("authors", []) or [],
         options=options,
         output_dir=_resolve(base_dir, raw.get("output_dir", "output")),
         known_titles_file=_resolve(base_dir, raw.get("known_titles_file")),

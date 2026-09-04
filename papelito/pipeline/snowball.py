@@ -46,9 +46,17 @@ def _topic_keywords(topics):
     return [k for k in kws if len(k) > 3]
 
 
-def _topically_relevant(title, abstract, patterns):
+def _topically_relevant(title, abstract, patterns, min_hits=2):
+    """Require at least `min_hits` DISTINCT keywords to match, not just one.
+    A citation graph is large and generic; topic vocabularies inevitably
+    include ordinary words ("interface", "vision", "network", "reality")
+    that show up in unrelated papers on their own ("teacher interfaces",
+    "curriculum vision"). A single hit is essentially noise; two distinct
+    on-topic words landing in the same title/abstract is a much stronger
+    signal, and is what actually delivers on this module's stated
+    precision-over-recall goal."""
     blob = f"{title or ''} {abstract or ''}"
-    return any(p.search(blob) for p in patterns)
+    return sum(1 for p in patterns if p.search(blob)) >= min_hits
 
 
 def snowball(seeds, topics, s2_client, venue_matcher, limit, log=print):

@@ -19,6 +19,8 @@ MIN_INTERVAL = 1.05  # >1 req/sec cumulative limit -- stay safely under it
 DEFAULT_SEARCH_FIELDS = "title,year,venue,publicationVenue,externalIds,abstract,paperId,authors,openAccessPdf"
 DEFAULT_CITATION_FIELDS = "title,year,venue,publicationVenue,externalIds,paperId,abstract"
 DEFAULT_BATCH_FIELDS = "title,year,venue,publicationVenue,externalIds,abstract,paperId"
+DEFAULT_AUTHOR_SEARCH_FIELDS = "name,affiliations,paperCount,hIndex,externalIds"
+DEFAULT_AUTHOR_PAPERS_FIELDS = DEFAULT_SEARCH_FIELDS
 
 
 class S2Client:
@@ -82,6 +84,29 @@ class S2Client:
         for i in range(0, len(ids), 500):
             chunk = ids[i:i + 500]
             out.extend(self._request("POST", f"{BASE}/paper/batch", params={"fields": fields}, json={"ids": chunk}))
+        return out
+
+    def author_search(self, query, fields=DEFAULT_AUTHOR_SEARCH_FIELDS):
+        return self._request("GET", f"{BASE}/author/search", params={"query": query, "fields": fields})
+
+    def author_papers(self, author_id, fields=DEFAULT_AUTHOR_PAPERS_FIELDS, page_size=1000):
+        """Fetch an author's ENTIRE publication list (paginated via the
+        API's offset/next cursor) -- there is no topic or venue signal to
+        search against for a specific author, so the full list is fetched
+        and callers filter it themselves (see identify.identify_by_authors)."""
+        out = []
+        offset = 0
+        while True:
+            r = self._request(
+                "GET", f"{BASE}/author/{author_id}/papers",
+                params={"fields": fields, "limit": page_size, "offset": offset},
+            )
+            data = r.get("data") or []
+            out.extend(data)
+            nxt = r.get("next")
+            if not data or nxt is None:
+                break
+            offset = nxt
         return out
 
 

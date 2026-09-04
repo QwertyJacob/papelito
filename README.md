@@ -99,6 +99,8 @@ venues:                          # optional; omit/empty = keep everything
     aliases: ["NIPS", "Neural Information Processing Systems"]
 seeds:                           # optional, for snowballing
   - "a seed paper title or close paraphrase"
+authors:                         # optional, for author-scoped identification
+  - "Donald D. Hoffman"
 known_titles_file: known.txt     # optional, one title per line
 options:
   arxiv_results_per_topic: 25
@@ -131,3 +133,27 @@ every intermediate step is saved to `raw/` for you to inspect.
 DBLP's coverage is CS-centric — community venues outside computer science
 won't be indexed there, so DBLP-only venue confirmation will legitimately
 miss them.
+
+## Author-scoped identification (non-CS fields, prolific authors)
+
+`arxiv`+`s2 topic search`+`dblp` are all CS-leaning: arXiv is preprint-server
+coverage for physics/CS/math-adjacent fields, and DBLP indexes CS venues
+only. For an author who publishes mainly in other disciplines (psychology,
+philosophy, cognitive science, biology, ...), those sources will
+legitimately miss most of their work, and a topic search alone can't
+reliably distinguish "the right person's paper" from someone with the same
+byline. Requires a Semantic Scholar API key.
+
+Add `authors:` to your config with one or more author names. For each,
+papelito resolves the name to a Semantic Scholar author id (most-prolific
+matching profile wins, logged for you to sanity-check), pulls that
+profile's *entire* publication list, and keeps only the papers matching a
+configured topic's keywords — there's no per-author search query to lean
+on for relevance, so filtering happens after the full list is fetched.
+
+This also guards (imperfectly) against a known S2 data quality issue:
+author disambiguation sometimes merges unrelated same-name people into one
+profile. The topic filter incidentally screens out most such noise, but
+skim the `[author] matched ...` log line for the resolved id and paper
+count, and spot-check `raw/02b_author_candidates.json` if a name is
+ambiguous.
