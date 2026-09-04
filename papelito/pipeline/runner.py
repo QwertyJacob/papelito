@@ -22,17 +22,21 @@ def _surname(name):
 
 
 def _filter_by_authors(pool, author_names):
-    """When an `authors:` allow-list is configured, treat it as an
-    authorship filter over EVERY identification source, not just the
-    dedicated author-profile pull -- otherwise a topic search returns every
-    other researcher writing about the same topic, which is exactly the
-    ambiguity author-scoped identification exists to resolve (see
-    identify.identify_by_authors). Matches on surname as a whole word,
-    since sources report author names in inconsistent formats ("D.
-    Hoffman" vs "Donald D. Hoffman"). Candidates with no author data at all
-    (e.g. snowball hits, which don't fetch author fields) are dropped by
-    this filter -- keep such pools out of the merge when authors: is set
-    and precision matters more than recall."""
+    """Keep only candidates crediting at least one of `author_names`,
+    matched on surname as a whole word (sources report names in
+    inconsistent formats -- "D. Hoffman" vs "Donald D. Hoffman"). Applied
+    by run() to the arXiv and S2 topic-search pools when `authors:` is
+    configured, so a topic search doesn't return every other researcher
+    writing about the same topic -- exactly the ambiguity author-scoped
+    identification exists to resolve (see identify.identify_by_authors).
+
+    A candidate with no `authors` data at all always fails this filter (an
+    empty list has no surname to match), so don't apply it to a pool that
+    doesn't carry author info -- snowball's citation-graph endpoints don't
+    fetch an `authors` field, which is why run() does NOT filter
+    snowball_pool through this: doing so would silently empty it out
+    whenever authors: is set, rather than actually restricting it by
+    authorship."""
     if not author_names:
         return pool
     surnames = {_surname(n) for n in author_names}

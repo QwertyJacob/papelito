@@ -44,6 +44,16 @@ venues:
 seeds:
   - "Graph Neural Networks: A Review of Methods and Applications"
 
+# Optional: scope identification to specific authors -- resolves each name
+# to a Semantic Scholar author id, pulls their ENTIRE publication list, and
+# keeps only papers matching a topic above. Also filters the arXiv/S2
+# topic-search results down to hits crediting one of these authors. Built
+# for reviewing one prolific author's own work in a field arXiv/DBLP don't
+# cover well (see README.md's "Author-scoped identification" section) --
+# not useful for a topic-first review like this GNN example, so left empty.
+# authors:
+#   - "Jane Q. Researcher"
+
 # Optional: a plain-text file, one title per line, of papers you already
 # know about -- matched papers get flagged `_already_known` in the report
 # instead of being excluded.

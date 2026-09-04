@@ -157,3 +157,23 @@ profile. The topic filter incidentally screens out most such noise, but
 skim the `[author] matched ...` log line for the resolved id and paper
 count, and spot-check `raw/02b_author_candidates.json` if a name is
 ambiguous.
+
+Setting `authors:` doesn't just add a source, it also tightens every
+*other* source: arXiv and S2 topic-search results are filtered down to
+hits that credit one of the listed authors (surname match against each
+hit's author list) before merging. Otherwise a topic search returns every
+other researcher writing on the same topic, which is exactly the
+ambiguity author-scoped identification exists to resolve. Snowball hits
+are exempted from this filter rather than dropped by it, since the
+citation-graph endpoints papelito calls don't fetch author names at all --
+see the caveat below.
+
+Snowballing has no visibility into authorship at all (papers/citations
+fetched from Semantic Scholar's references/citations endpoints don't
+request an `authors` field), so combining `snowball: true` with `authors:`
+will keep snowball hits regardless of who wrote them -- if you want a
+strictly single-author pool, turn snowball off. Separately, snowball's
+own topical-relevance check requires at least 2 distinct topic keywords to
+match (not just 1): a single generic word from a topic's vocabulary
+("interface", "vision", "network", ...) reliably matches unrelated papers
+in a large citation graph on its own, and this cuts most of that out.
