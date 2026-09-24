@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 import requests
 
 NS = {"a": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
-BASE = "http://export.arxiv.org/api/query"
+BASE = "https://export.arxiv.org/api/query"
 MIN_INTERVAL = 3.5  # arXiv API terms of use ask for >=3s between requests
 
 

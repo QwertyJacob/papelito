@@ -9,6 +9,7 @@ import re
 from ..clients.arxiv_client import ArxivClient
 from ..clients.dblp_client import DblpClient
 from ..clients.s2_client import S2Client, resolve_api_key
+from ..clients.openalex_client import OpenAlexClient
 from ..venues import VenueMatcher
 from . import identify, merge as merge_stage, report as report_stage, snowball as snowball_stage
 
@@ -22,21 +23,6 @@ def _surname(name):
 
 
 def _filter_by_authors(pool, author_names):
-    """Keep only candidates crediting at least one of `author_names`,
-    matched on surname as a whole word (sources report names in
-    inconsistent formats -- "D. Hoffman" vs "Donald D. Hoffman"). Applied
-    by run() to the arXiv and S2 topic-search pools when `authors:` is
-    configured, so a topic search doesn't return every other researcher
-    writing about the same topic -- exactly the ambiguity author-scoped
-    identification exists to resolve (see identify.identify_by_authors).
-
-    A candidate with no `authors` data at all always fails this filter (an
-    empty list has no surname to match), so don't apply it to a pool that
-    doesn't carry author info -- snowball's citation-graph endpoints don't
-    fetch an `authors` field, which is why run() does NOT filter
-    snowball_pool through this: doing so would silently empty it out
-    whenever authors: is set, rather than actually restricting it by
-    authorship."""
     if not author_names:
         return pool
     surnames = {_surname(n) for n in author_names}
@@ -63,16 +49,15 @@ def run(config, log=print):
     venue_matcher = VenueMatcher(config.venues)
 
     api_key = resolve_api_key(config)
-    s2_client = S2Client(api_key=api_key)
     arxiv_client = ArxivClient()
     dblp_client = DblpClient()
-
-    if not api_key:
-        log(
-            "No Semantic Scholar API key found -- running in arXiv+DBLP-only mode "
-            "(no S2 topic search, no snowballing, no S2 batch venue confirmation). "
-            "See README.md to add one."
-        )
+    if api_key:
+        graph_client = S2Client(api_key=api_key)
+        client_name = "Semantic Scholar"
+    else:
+        graph_client = OpenAlexClient()
+        client_name = "OpenAlex"
+        log("No Semantic Scholar API key found -- using OpenAlex for graph search & citation snowballing.")
 
     log(f"\n=== Identifying via arXiv ({len(config.topics)} topic(s)) ===")
     arxiv_pool = identify.identify_arxiv(config.topics, arxiv_client, venue_matcher, dblp_client, config.options, log=log)
@@ -80,31 +65,30 @@ def run(config, log=print):
     log(f"  {len(arxiv_pool)} unique arXiv candidates")
 
     s2_pool, author_pool, snowball_pool = {}, {}, {}
-    if api_key:
-        log(f"\n=== Identifying via Semantic Scholar ({len(config.topics)} topic(s)) ===")
-        s2_pool = identify.identify_s2(config.topics, s2_client, config.options, log=log)
-        _checkpoint(config.output_dir, "02_s2_candidates.json", s2_pool)
-        log(f"  {len(s2_pool)} unique S2 candidates")
+    log(f"\n=== Identifying via {client_name} ({len(config.topics)} topic(s)) ===")
+    s2_pool = identify.identify_s2(config.topics, graph_client, config.options, log=log)
+    _checkpoint(config.output_dir, "02_s2_candidates.json", s2_pool)
+    log(f"  {len(s2_pool)} unique {client_name} candidates")
 
-        if config.authors:
-            log(f"\n=== Identifying via author search ({len(config.authors)} author(s)) ===")
-            author_pool = identify.identify_by_authors(config.authors, config.topics, s2_client, log=log)
-            _checkpoint(config.output_dir, "02b_author_candidates.json", author_pool)
-            log(f"  {len(author_pool)} unique author-based candidates")
+    if config.authors and api_key:
+        log(f"\n=== Identifying via author search ({len(config.authors)} author(s)) ===")
+        author_pool = identify.identify_by_authors(config.authors, config.topics, graph_client, log=log)
+        _checkpoint(config.output_dir, "02b_author_candidates.json", author_pool)
+        log(f"  {len(author_pool)} unique author-based candidates")
 
-        if config.options.snowball and config.seeds:
-            log(f"\n=== Resolving {len(config.seeds)} seed(s) ===")
-            seeds = snowball_stage.resolve_seeds(config.seeds, s2_client, log=log)
-            _checkpoint(config.output_dir, "03_resolved_seeds.json", seeds)
+    if config.options.snowball and config.seeds:
+        log(f"\n=== Resolving {len(config.seeds)} seed(s) via {client_name} ===")
+        seeds = snowball_stage.resolve_seeds(config.seeds, graph_client, log=log)
+        _checkpoint(config.output_dir, "03_resolved_seeds.json", seeds)
 
-            log(f"\n=== Snowballing from {len(seeds)} resolved seed(s) ===")
-            snowball_pool = snowball_stage.snowball(
-                seeds, config.topics, s2_client, venue_matcher, config.options.snowball_limit, log=log
-            )
-            _checkpoint(config.output_dir, "04_snowball_candidates.json", snowball_pool)
-            log(f"  {len(snowball_pool)} unique snowball candidates")
-        elif config.options.snowball and not config.seeds:
-            log("\n(snowballing enabled but no seeds configured -- skipped)")
+        log(f"\n=== Snowballing from {len(seeds)} resolved seed(s) via {client_name} ===")
+        snowball_pool = snowball_stage.snowball(
+            seeds, config.topics, graph_client, venue_matcher, config.options.snowball_limit, log=log
+        )
+        _checkpoint(config.output_dir, "04_snowball_candidates.json", snowball_pool)
+        log(f"  {len(snowball_pool)} unique snowball candidates")
+    elif config.options.snowball and not config.seeds:
+        log("\n(snowballing enabled but no seeds configured -- skipped)")
 
     if config.authors:
         log(f"\n=== Restricting arXiv/S2 topic-search hits to configured author(s) ===")
@@ -120,6 +104,14 @@ def run(config, log=print):
     if api_key:
         log("\n=== Confirming venues via Semantic Scholar batch lookup ===")
         _confirm_venues_batch(pool, s2_client, venue_matcher, log=log)
+    elif not venue_matcher.is_empty:
+        log("\n=== Confirming venues via OpenAlex structured venue matching ===")
+        for c in pool.values():
+            if not c.get("_venue") and c.get("_raw_venue"):
+                mv = venue_matcher.match_text(c.get("_raw_venue"))
+                if mv:
+                    c["_venue"] = mv
+                    c["_venue_source"] = "openalex_venue"
 
     _checkpoint(config.output_dir, "05_merged_pool.json", pool)
 

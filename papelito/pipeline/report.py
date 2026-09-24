@@ -27,6 +27,8 @@ def _paper_entry(c):
         meta.append(f"[arXiv:{c['arxiv_id']}](https://arxiv.org/abs/{c['arxiv_id']})")
     if c.get("s2_paper_id"):
         meta.append(f"[Semantic Scholar](https://www.semanticscholar.org/paper/{c['s2_paper_id']})")
+    if c.get("pdf_url"):
+        meta.append(f"[PDF]({c['pdf_url']})")
     if meta:
         lines.append(" · ".join(meta))
 

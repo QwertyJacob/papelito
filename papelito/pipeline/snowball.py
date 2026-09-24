@@ -19,7 +19,7 @@ def resolve_seeds(seed_queries, s2_client, log=print):
     resolved = {}
     for q in seed_queries:
         try:
-            r = s2_client.search(q, limit=1)
+            r = s2_client.search(q, limit=5)
         except Exception as e:
             log(f"  [seed] ERROR for {q!r}: {e}")
             continue
@@ -27,14 +27,22 @@ def resolve_seeds(seed_queries, s2_client, log=print):
         if not hits:
             log(f"  [seed] no hit for {q!r}")
             continue
-        top = hits[0]
-        qn, tn = set(_norm(q).split()), set(_norm(top.get("title")).split())
-        overlap = len(qn & tn) / max(1, min(len(qn), len(tn)))
-        if overlap < 0.5:
-            log(f"  [seed] SKIP (top hit too dissimilar, overlap={overlap:.2f}): {q!r} -> {top.get('title')!r}")
+        qn = set(_norm(q).split())
+        best_hit, best_overlap = None, 0.0
+        for h in hits:
+            tn = set(_norm(h.get("title")).split())
+            if not tn or not qn:
+                continue
+            overlap = len(qn & tn) / max(1, min(len(qn), len(tn)))
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_hit = h
+        if not best_hit or best_overlap < 0.35:
+            top_title = best_hit.get("title") if best_hit else (hits[0].get("title") if hits else None)
+            log(f"  [seed] SKIP (top hit too dissimilar, overlap={best_overlap:.2f}): {q!r} -> {top_title!r}")
             continue
-        resolved[q] = top
-        log(f"  [seed] OK: {q!r} -> {top.get('title')!r}")
+        resolved[q] = best_hit
+        log(f"  [seed] OK (overlap={best_overlap:.2f}): {q!r} -> {best_hit.get('title')!r}")
     return resolved
 
 

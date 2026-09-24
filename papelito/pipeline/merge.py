@@ -52,4 +52,9 @@ def merge_pools(*pools):
                 existing["_venue_source"] = c.get("_venue_source")
             if not existing.get("_raw_venue") and c.get("_raw_venue"):
                 existing["_raw_venue"] = c["_raw_venue"]
+            if not existing.get("pdf_url") and c.get("pdf_url"):
+                existing["pdf_url"] = c["pdf_url"]
+            if not existing.get("openAccessPdf") and c.get("openAccessPdf"):
+                existing["openAccessPdf"] = c["openAccessPdf"]
     return merged
+
