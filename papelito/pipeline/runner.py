@@ -103,7 +103,7 @@ def run(config, log=print):
 
     if api_key:
         log("\n=== Confirming venues via Semantic Scholar batch lookup ===")
-        _confirm_venues_batch(pool, s2_client, venue_matcher, log=log)
+        _confirm_venues_batch(pool, graph_client, venue_matcher, log=log)
     elif not venue_matcher.is_empty:
         log("\n=== Confirming venues via OpenAlex structured venue matching ===")
         for c in pool.values():
